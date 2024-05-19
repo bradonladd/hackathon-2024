@@ -31,7 +31,6 @@ export async function createUser(
 
     const userEmail = await kv.hmget(`user:${email}`)
 
-    console.log("User Email Logging: ", userEmail)
 
     return {
       type: 'success',

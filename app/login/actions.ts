@@ -10,7 +10,6 @@ import { Doctor } from '@/components/appointments/doctors'
 
 export async function getUser(email: string) {
   const user = await kv.hgetall<User>(`user:${email}`)
-  console.log(user)
   return user
 }
 

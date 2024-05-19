@@ -58,17 +58,13 @@ async function showDoctorBio(doctor: {id: number, name: string, phoneNumber: str
 
       try {
         const test1 = await kv.hset('doctors_test_2', { id: 123, name: name });
-        console.log("Results", test1)
       } catch (error) {
-        console.log("Error", error)
       }
     
 
     try {
       const userId = await kv.hget('doctors_test_2', 'name');
-      console.log("Results" , userId);
     } catch (error) {
-      console.log("Error", error)
     }
     
 
@@ -384,9 +380,7 @@ async function submitUserMessage(content: string) {
             const test1 = await kv.hset('doctorInfo', { id: "389292", name: "Dr. Who", phoneNumber: "555-554-1234" });
             const test2 = await kv.hset('doctorInfo', { id: "322511", name: "Dr. Where", phoneNumber: "555-554-2231"});
             const test3 = await kv.hset('doctorInfo', { id: "355112", name: "Dr. Why", phoneNumber: "555-5554-3312"});
-            console.log("Results", test1, "\n", test2, "\n", test3)
           } catch (error) {
-            console.log("Error", error)
           }
 
           return (
