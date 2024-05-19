@@ -10,13 +10,6 @@ import {
 } from 'ai/rsc'
 import { openai } from '@ai-sdk/openai'
 
-import {
-  spinner,
-  BotCard,
-  BotMessage,
-  SystemMessage
-} from '@/components/appointments'
-
 import { z } from 'zod'
 import {
   runAsyncFnWithoutBlocking,
@@ -24,14 +17,14 @@ import {
   nanoid
 } from '@/lib/utils'
 import { saveChat } from '@/app/actions'
-import { SpinnerMessage, UserMessage } from '@/components/appointments/message'
-import { Chat } from '@/lib/types'
+import { BotCard, BotMessage, SpinnerMessage, SystemMessage, UserMessage } from '@/components/appointments/message'
+import { Chat, Message } from '@/lib/types'
 import { auth } from '@/auth'
 import { AppointmentSlots } from '@/components/appointments/appointment-slots'
+import { spinner } from '@/components/appointments'
 
 async function confirmAppointment(appointmentSlot: {id: number, time: string, durationMinutes: number, doctor: string}) {
   'use server'
-
   const {id, time, durationMinutes, doctor} = appointmentSlot;
   const aiState = getMutableAIState<typeof AI>()
 
@@ -39,7 +32,7 @@ async function confirmAppointment(appointmentSlot: {id: number, time: string, du
     <div className="inline-flex items-start gap-1 md:items-center">
       {spinner}
       <p className="mb-2">
-        Selecting appointment {id} ...
+      Selecting appointment {id} ...
       </p>
     </div>
   )
@@ -53,7 +46,7 @@ async function confirmAppointment(appointmentSlot: {id: number, time: string, du
       <div className="inline-flex items-start gap-1 md:items-center">
         {spinner}
         <p className="mb-2">
-          Selecting appointment {id} ... working on it...
+        Selecting appointment {id} ... working on it...
         </p>
       </div>
     )
@@ -63,7 +56,7 @@ async function confirmAppointment(appointmentSlot: {id: number, time: string, du
     selecting.done(
       <div>
         <p className="mb-2">
-          You have successfully selected appointment {id}.
+        You have successfully selected appointment {id}.
         </p>
       </div>
     )
@@ -77,23 +70,11 @@ async function confirmAppointment(appointmentSlot: {id: number, time: string, du
     aiState.done({
       ...aiState.get(),
       messages: [
-        ...aiState.get().messages.slice(0, -1),
-        {
-          id: nanoid(),
-          role: 'function',
-          name: 'showSelectedAppointment',
-          content: JSON.stringify({
-            id,
-            time,
-            durationMinutes,
-            doctor,
-            status: 'completed'
-          })
-        },
+        ...aiState.get().messages,
         {
           id: nanoid(),
           role: 'system',
-          content: `[User has selected appointment with id ${id}]`
+          content: `[User has selected appointment with id ${id}]]`
         }
       ]
     })
@@ -136,7 +117,7 @@ async function submitUserMessage(content: string) {
     You and the user can discuss available appointment times and the user can view appointments and select one in the UI.
     
     Messages inside [] means that it's a UI element or a user event. For example:
-    - "[Chose appointment 4]" means that the user has chosen the appointment with id number 4 in the UI.
+    - "[Chose appointment 4]" means that the user has chosen the appointment with id number 4 in the UI..
     
     If the user requests to view open appoinements, call \`list_appointment_slots\` to show the open appointments UI.
     If the user wants to do something unrelated to discussing the clinic or its appointments, respond that you are a demo and cannot do that.
@@ -199,15 +180,35 @@ async function submitUserMessage(content: string) {
 
           await sleep(1000)
 
+          const toolCallId = nanoid()
+
           aiState.done({
             ...aiState.get(),
             messages: [
               ...aiState.get().messages,
               {
                 id: nanoid(),
-                role: 'function',
-                name: 'listAppointmentSlots',
-                content: JSON.stringify(appointmentSlots)
+                role: 'assistant',
+                content: [
+                  {
+                    type: 'tool-call',
+                    toolName: 'listAppointmentSlots',
+                    toolCallId,
+                    args: { appointmentSlots }
+                  }
+                ]
+              },
+              {
+                id: nanoid(),
+                role: 'tool',
+                content: [
+                  {
+                    type: 'tool-result',
+                    toolName: 'listAppointmentSlots',
+                    toolCallId,
+                    result: appointmentSlots
+                  }
+                ]
               }
             ]
           })
@@ -226,13 +227,6 @@ async function submitUserMessage(content: string) {
     id: nanoid(),
     display: result.value
   }
-}
-
-export type Message = {
-  role: 'user' | 'assistant' | 'system' | 'function' | 'data' | 'tool'
-  content: string
-  id: string
-  name?: string
 }
 
 export type AIState = {
@@ -268,7 +262,7 @@ export const AI = createAI<AIState, UIState>({
       return
     }
   },
-  onSetAIState: async ({ state, done }) => {
+  onSetAIState: async ({ state }) => {
     'use server'
 
     const session = await auth()
@@ -279,7 +273,9 @@ export const AI = createAI<AIState, UIState>({
       const createdAt = new Date()
       const userId = session.user.id as string
       const path = `/chat/${chatId}`
-      const title = messages[0].content.substring(0, 100)
+
+      const firstMessageContent = messages[0].content as string
+      const title = firstMessageContent.substring(0, 100)
 
       const chat: Chat = {
         id: chatId,
@@ -303,21 +299,21 @@ export const getUIStateFromAIState = (aiState: Chat) => {
     .map((message, index) => ({
       id: `${aiState.chatId}-${index}`,
       display:
-        message.role === 'function' ? (
-          message.name === 'listAppointmentSlots' ? (
-            <BotCard>
-              <AppointmentSlots props={JSON.parse(message.content)} />
-            </BotCard>
-          ) : 
-          message.name === 'showSelectedAppointment' ? (
-            <BotCard>
-              {message.content}
-            </BotCard>
-          ) : null
+        message.role === 'tool' ? (
+          message.content.map(tool => {
+            return tool.toolName === 'listAppointmentSlots' ? (
+              <BotCard>
+                {/* TODO: Infer types based on the tool result*/}
+                {/* @ts-expect-error */}
+                <AppointmentSlots props={tool.result} />
+              </BotCard>
+            ) : null
+          })
         ) : message.role === 'user' ? (
-          <UserMessage>{message.content}</UserMessage>
-        ) : (
+          <UserMessage>{message.content as string}</UserMessage>
+        ) : message.role === 'assistant' &&
+          typeof message.content === 'string' ? (
           <BotMessage content={message.content} />
-        )
+        ) : null
     }))
 }
