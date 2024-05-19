@@ -362,14 +362,15 @@ async function submitUserMessage(content: string) {
 
         }
 
-      },
+      }
+      /*,
       adminAddDoctors: {
         description: 'Trigger the add doctors function',
         parameters: z.string().describe("Admin Functions"),
         generate: async function* ({}) {
           yield (
             <BotCard>
-              {/* <AppointmentsSkeleton /> */}
+              {/* <AppointmentsSkeleton /> *//*}
               Setting doctors
             </BotCard>
           )
@@ -391,7 +392,7 @@ async function submitUserMessage(content: string) {
           
         }
 
-      }
+      } */
     }
   })
 
@@ -486,11 +487,11 @@ export const getUIStateFromAIState = (aiState: Chat) => {
                 {/* @ts-expect-error */}
                 <Doctors props={tool.result} />
               </BotCard>
-            ) : tool.toolName === 'adminAddDoctors' ? (
+            ) /*: tool.toolName === 'adminAddDoctors' ? (
               <BotCard>
                 Done Working
               </BotCard>
-            ) : null
+            )*/ : null
           })
         ) : message.role === 'user' ? (
           <UserMessage>{message.content as string}</UserMessage>
