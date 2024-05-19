@@ -6,9 +6,11 @@ import { AuthError } from 'next-auth'
 import { z } from 'zod'
 import { kv } from '@vercel/kv'
 import { ResultCode } from '@/lib/utils'
+import { Doctor } from '@/components/appointments/doctors'
 
 export async function getUser(email: string) {
   const user = await kv.hgetall<User>(`user:${email}`)
+  console.log(user)
   return user
 }
 
